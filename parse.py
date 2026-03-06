@@ -2,17 +2,12 @@ import pandas as pd
 import numpy as np
 import math
 import re
-from parsel import Selector
-from pathlib import Path
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 from functions import *
 
-url = Path("./webpages/2025_worldchamps.html")
 
-html = url.read_text(encoding="utf-8")
-sel = Selector(text=html)
-
-
-def lift(card):
+def parse_lift(card):
     """
     Helper function called on a athlete's lifts in a certain lift. e.g. 60kg men's snatch for one athlete
 
@@ -32,7 +27,7 @@ def lift(card):
 
     rank = strings_1[0]
     rank = "".join(rank.css("::text").getall()).strip()
-    rank = int(m.group(1)) if (m := re.search(r":\s*(\d+)", rank)) else np.nan
+    rank = int(m.group(1)) if (m := re.search(r":\s*(\d+)", rank)) else pd.NA
 
     name = strings_1[1]
     name = "".join(name.css("::text").getall()).strip()
@@ -71,14 +66,14 @@ def lift(card):
 
         # Get the number
         att_num = "".join(att.css("::text").getall()).strip()
-        att_num = int(m.group(1)) if (m := re.search(r":\s*(\d+)", att_num)) else np.nan
+        att_num = int(m.group(1)) if (m := re.search(r":\s*(\d+)", att_num)) else pd.NA
 
         attempts.append(att_num)
 
         # See if there is a "strike" element, which means a missed lift
         strike = att.css("strike")
 
-        if np.isnan(att_num):
+        if pd.isna(att_num):
             makes.append(pd.NA)
         elif len(strike) > 0:
             makes.append(False)
@@ -104,11 +99,79 @@ def lift(card):
 
 
 
-def section(id):
+def parse_total(card):
+
+    """
+    Helper function to retrieve total info
+    snatch best, cj best, overall rank, total
+    Note: doesn't grab all columns, since not all are necessary
+
+    Args:
+        cards: div containing data
+        
+    Returns:
+        dictionary with data
+    """
+    info = card.css(":scope > div:first-child > div:first-child")[0]
+
+    # Group 1: rank and name. Don't need country
+    info_1 = info.css(":scope > :nth-child(1)")[0]
+
+    strings_1 = info_1.css("p")
+
+    rank = strings_1[0]
+    rank = "".join(rank.css("::text").getall()).strip()
+    rank = int(m.group(1)) if (m := re.search(r":\s*(\d+)", rank)) else pd.NA
+
+    name = strings_1[1]
+    name = "".join(name.css("::text").getall()).strip()
+
+    # Group 2: birthdate
+    info_2 = info.css(":scope > :nth-child(2)")[0]
+
+    strings_2 = info_2.css("p")
+
+    birth = strings_2[0]
+    birth = "".join(birth.css("::text").getall()).strip()
+    birth = re.sub("Born: ", "", birth)
+    birth = pd.to_datetime(birth)
+
+    # Group 3: Bests and total
+    info_3 = info.css(":scope > :nth-child(3)")[0]
+
+    strings_3 = info_3.css("p")
+
+    snatch_best = "".join(strings_3[0].css("::text").getall()).strip()
+    snatch_best = int(m.group(0)) if (m := re.search(r"\d+", snatch_best)) else pd.NA
+
+    cj_best = "".join(strings_3[1].css("::text").getall()).strip()
+    cj_best = int(m.group(0)) if (m := re.search(r"\d+", cj_best)) else pd.NA
+
+    total_best = "".join(strings_3[2].css("::text").getall()).strip()
+    total_best = int(m.group(0)) if (m := re.search(r"\d+", total_best)) else pd.NA
+
+
+    return {
+        "Rank": rank,
+        "Name": name,
+        "Born": birth,
+        "Snatch Best": snatch_best,
+        "CJ Best": cj_best,
+        "Total": total_best
+    }
+
+
+
+
+
+
+
+def section(sel, id):
     """
     Main driver function that is called on the men's or women's section of results
 
     Args:
+        sel: Selector object containing entire HTML page
         id: css id of the div that contains the relevant info
 
     Returns:
@@ -125,6 +188,11 @@ def section(id):
         raise ValueError(
             f"Expected multiple of 7 divs, got {len(divs)}"
         )
+
+
+    # Initialize final dataframes
+    combined_final_df = pd.DataFrame(columns=SN_CJ_COLUMNS)
+    total_final_df = pd.DataFrame(columns=TOTAL_COLUMNS)
     
     # Groups of 7 divs should follow the format:
     # 1. Name of weight class category
@@ -135,6 +203,7 @@ def section(id):
     # 6. Total
     # 7. Total results
 
+
     for i in range(math.floor(len(divs) / 7)):
 
         # Grab group of 7
@@ -142,7 +211,8 @@ def section(id):
 
         # First div has the weight category and gender
         weight_class = category[0].css("h3::text").get()
-        weight_class_num = re.search(r"\d+", weight_class).group()
+        weight_class = weight_class.strip()
+        weight_class_num = re.search(r"^[^ ]+", weight_class).group(0)
         gender = re.search(r"[A-Za-z]+$", weight_class).group()
 
         # Third div has the snatch results
@@ -155,7 +225,7 @@ def section(id):
         snatch_df = pd.DataFrame(columns=SN_CJ_COLUMNS)
 
         for snatch in snatch_cards:
-            res = lift(snatch)
+            res = parse_lift(snatch)
             snatch_df.loc[len(snatch_df)] = res
 
         snatch_df["Lift"] = "Snatch"
@@ -170,7 +240,7 @@ def section(id):
         cj_df = pd.DataFrame(columns=SN_CJ_COLUMNS)
 
         for cj in cj_cards:
-            res = lift(cj)
+            res = parse_lift(cj)
             cj_df.loc[len(cj_df)] = res
 
         cj_df["Lift"] = "CJ"
@@ -185,18 +255,30 @@ def section(id):
             combined[col] = combined[col].astype("Int64")
 
 
+        # 7th div is the total
+        total = category[6]
+
+        total_cards = total.css(":scope > div")[1:]
+        total_df = pd.DataFrame(columns=TOTAL_COLUMNS)
+
+        for t in total_cards:
+            res = parse_total(t)
+            total_df.loc[len(total_df)] = res
+
+
+        # Add extra info columns
+        total_df["Category"] = weight_class_num
+        total_df["Gender"] = gender
+
+        # Concat to the final dfs
+        combined_final_df = pd.concat([combined_final_df, combined])
+        total_final_df = pd.concat([total_final_df, total_df])
+
+    return combined_final_df, total_final_df
+
         
 
 
 
 
 
-
-
-
-
-
-
-
-
-men = section("#men_snatchjerk")
