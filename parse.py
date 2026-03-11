@@ -4,7 +4,7 @@ import math
 import re
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
-from functions import *
+from constants import *
 
 
 def parse_lift(card):
@@ -66,6 +66,9 @@ def parse_lift(card):
 
         # Get the number
         att_num = "".join(att.css("::text").getall()).strip()
+        if "---" in att_num:
+            attempts.append(np.nan)
+            makes.append(pd.NA)
         att_num = int(m.group(1)) if (m := re.search(r":\s*(\d+)", att_num)) else pd.NA
 
         attempts.append(att_num)

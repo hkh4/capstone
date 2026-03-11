@@ -1,5 +1,5 @@
 from parse import *
-from parsel import Selector
+from parsel import Selector 
 from pathlib import Path
 import pandas as pd
 
@@ -104,4 +104,16 @@ final_wide = pd.merge(lifts_pivot, master_totals_combined, how="left").reset_ind
 
 final_wide = final_wide.sort_values(by=["Event", "Gender", "Category", "Rank"]).reset_index(drop=True)
 
-final_wide.to_csv("./data/data.csv")
+# Bring in dates
+final_wide["Date"] = final_wide["Event"].map(DATES)
+final_wide["Date"] = pd.to_datetime(final_wide["Date"])
+
+# Fix NA values
+final_wide["Snatch Attempt Make 1"] = final_wide["Snatch Attempt Make 1"].astype("boolean")
+final_wide["Snatch Attempt Make 2"] = final_wide["Snatch Attempt Make 2"].astype("boolean")
+final_wide["Snatch Attempt Make 3"] = final_wide["Snatch Attempt Make 3"].astype("boolean")
+final_wide["CJ Attempt Make 1"] = final_wide["CJ Attempt Make 1"].astype("boolean")
+final_wide["CJ Attempt Make 2"] = final_wide["CJ Attempt Make 2"].astype("boolean")
+final_wide["CJ Attempt Make 3"] = final_wide["CJ Attempt Make 3"].astype("boolean")
+
+final_wide.to_pickle("./data/data.pkl")
