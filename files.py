@@ -39,6 +39,9 @@ for fp in Path("webpages").glob("*.html"):
 master_lifts_combined = pd.concat(master_lifts)
 master_totals_combined = pd.concat(master_totals)
 
+master_lifts_combined.drop_duplicates(inplace=True)
+master_totals_combined.drop_duplicates(inplace=True)
+
 
 # ---------------------------------- Errors ---------------------------------- #
 # There are two lifters that have errors on the IWF official website. These are the ones I caught
@@ -86,6 +89,72 @@ master_totals_combined.loc[mask2, ["Name", "Born"]] = [
 
 
 
+# DQs
+dq1 = (
+   (master_lifts_combined["Name"] == "ALEMAN ARDON Sofia Isabel") & 
+   (master_lifts_combined["Born"] == pd.to_datetime("2001-09-10 00:00:00")) & 
+   (master_lifts_combined["Event"] == "2023_panamgames")
+)
+
+dq2 = (
+   (master_lifts_combined["Name"] == "VACHON Nicolas") & 
+   (master_lifts_combined["Born"] == pd.to_datetime("1996-07-05 00:00:00")) & 
+   (master_lifts_combined["Event"] == "2023_panamgames")
+)
+
+master_lifts_combined = master_lifts_combined[(~dq1) & (~dq2)].copy()
+
+dq1_t = (
+   (master_totals_combined["Name"] == "ALEMAN ARDON Sofia Isabel") & 
+   (master_totals_combined["Born"] == pd.to_datetime("2001-09-10 00:00:00")) & 
+   (master_totals_combined["Event"] == "2023_panamgames")
+)
+
+dq2_t = (
+   (master_totals_combined["Name"] == "VACHON Nicolas") & 
+   (master_totals_combined["Born"] == pd.to_datetime("1996-07-05 00:00:00")) & 
+   (master_totals_combined["Event"] == "2023_panamgames")
+)
+
+master_totals_combined = master_totals_combined[(~dq1_t) & (~dq2_t)].copy()
+
+
+
+
+# Missing data
+missing1 = (
+   (master_lifts_combined["Name"] == "QUINTANA MENDOZA Rosielis Coromoto") & 
+   (master_lifts_combined["Born"] == pd.to_datetime("2000-03-18 00:00:00")) & 
+   (master_lifts_combined["Event"] == "2023_grandprix1")
+)
+
+missing2 = (
+   (master_lifts_combined["Name"] == "CASTILLO CONTRERAS Thalia Fidelia") & 
+   (master_lifts_combined["Born"] == pd.to_datetime("2005-11-28 00:00:00")) & 
+   (master_lifts_combined["Event"] == "2023_grandprix1")
+)
+
+master_lifts_combined = master_lifts_combined[(~missing1) & (~missing2)].copy()
+
+missing1_t = (
+   (master_totals_combined["Name"] == "QUINTANA MENDOZA Rosielis Coromoto") & 
+   (master_totals_combined["Born"] == pd.to_datetime("2000-03-18 00:00:00")) & 
+   (master_totals_combined["Event"] == "2023_grandprix1")
+)
+
+missing2_t = (
+   (master_totals_combined["Name"] == "CASTILLO CONTRERAS Thalia Fidelia") & 
+   (master_totals_combined["Born"] == pd.to_datetime("2005-11-28 00:00:00")) & 
+   (master_totals_combined["Event"] == "2023_grandprix1")
+)
+
+master_totals_combined = master_totals_combined[(~missing1_t) & (~missing2_t)].copy()
+
+master_totals_combined["Born"] = pd.to_datetime(master_totals_combined["Born"])
+
+
+
+
 # ---------------------------- Create wide version --------------------------- #
 
 # to pivot columns
@@ -115,5 +184,8 @@ final_wide["Snatch Attempt Make 3"] = final_wide["Snatch Attempt Make 3"].astype
 final_wide["CJ Attempt Make 1"] = final_wide["CJ Attempt Make 1"].astype("boolean")
 final_wide["CJ Attempt Make 2"] = final_wide["CJ Attempt Make 2"].astype("boolean")
 final_wide["CJ Attempt Make 3"] = final_wide["CJ Attempt Make 3"].astype("boolean")
+
+for col in ["Rank", "Snatch Best", "CJ Best", "Total", "CJ Rank", "Snatch Rank", "Snatch Attempt 1", "Snatch Attempt 2", "Snatch Attempt 3", "CJ Attempt 1", "CJ Attempt 2", "CJ Attempt 3"]:
+            final_wide[col] = final_wide[col].astype("Int64")
 
 final_wide.to_pickle("./data/data.pkl")

@@ -27,6 +27,9 @@ def parse_lift(card):
 
     rank = strings_1[0]
     rank = "".join(rank.css("::text").getall()).strip()
+    # if it's a DQ, just return
+    if re.search(r"DSQ", rank):
+        return None
     rank = int(m.group(1)) if (m := re.search(r":\s*(\d+)", rank)) else pd.NA
 
     name = strings_1[1]
@@ -215,7 +218,7 @@ def section(sel, id):
         # First div has the weight category and gender
         weight_class = category[0].css("h3::text").get()
         weight_class = weight_class.strip()
-        weight_class_num = re.search(r"^[^ ]+", weight_class).group(0)
+        weight_class_num = re.search(r"^[^ ]+", weight_class).group(0).strip()
         gender = re.search(r"[A-Za-z]+$", weight_class).group()
 
         # Third div has the snatch results
@@ -244,7 +247,8 @@ def section(sel, id):
 
         for cj in cj_cards:
             res = parse_lift(cj)
-            cj_df.loc[len(cj_df)] = res
+            if res:
+                cj_df.loc[len(cj_df)] = res
 
         cj_df["Lift"] = "CJ"
 
@@ -266,7 +270,8 @@ def section(sel, id):
 
         for t in total_cards:
             res = parse_total(t)
-            total_df.loc[len(total_df)] = res
+            if res:
+                total_df.loc[len(total_df)] = res
 
 
         # Add extra info columns
