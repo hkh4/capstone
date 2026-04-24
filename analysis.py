@@ -4,6 +4,7 @@ from sklearn.tree import DecisionTreeRegressor
 from sklearn.tree import plot_tree
 from scipy.stats import mannwhitneyu
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 data = pd.read_pickle("./data/data.pkl")
 
@@ -26,14 +27,35 @@ make_miss = data[
     "CJ Attempt Make 1", "CJ Attempt Make 2", "CJ Attempt Make 3"]
 ].agg("mean")
 
-make_miss_gender = data.groupby("Gender").agg(
-   snatch_1 = ("Snatch Attempt Make 1", "mean"),
-   snatch_2 = ("Snatch Attempt Make 2", "mean"),
-   snatch_3 = ("Snatch Attempt Make 3", "mean"),
-   cj_1 = ("CJ Attempt Make 1", "mean"),
-   cj_2 = ("CJ Attempt Make 2", "mean"),
-   cj_3 = ("CJ Attempt Make 3", "mean")
-).reset_index()
+
+# Chart
+snatch = make_miss.iloc[:3].values * 100
+cj = make_miss.iloc[3:].values * 100
+
+# x location
+x = np.array([0, 1])  
+width = 0.22
+
+fig, ax = plt.subplots(figsize=(8, 5))
+
+ax.bar(x - width, [snatch[0], cj[0]], width, label='Attempt 1')
+ax.bar(x,         [snatch[1], cj[1]], width, label='Attempt 2')
+ax.bar(x + width, [snatch[2], cj[2]], width, label='Attempt 3')
+
+# Labels and formatting
+ax.set_xlabel('Lift')
+ax.set_ylabel('Make Rate (%)')
+ax.set_title('Make Rate by Lift and Attempt')
+ax.set_xticks(x)
+ax.set_xticklabels(['Snatch', 'Clean & Jerk'])
+ax.legend()
+
+plt.tight_layout()
+
+plt.savefig("charts/make_rate_by_lift.png", dpi=300, bbox_inches='tight')
+
+plt.show()
+
 
 
 
@@ -267,6 +289,7 @@ cj_1_summary = full.groupby("c1_state").agg(
 s1b = full[full["s1_state"] == "miss_bump"]["pct_improvement_snatch"].copy()
 s1r = full[full["s1_state"] == "miss_retake"]["pct_improvement_snatch"].copy()
 u_s1, p_s1 = mannwhitneyu(s1b, s1r)
+u_s1_percent = u_s1 / (len(s1b) * len(s1r))
 
 
 # --------------------------------- snatch 2 --------------------------------- #
@@ -283,6 +306,7 @@ s2r_make = full[
 ]["pct_improvement_snatch"].copy()
 
 u_s2_make, p_s2_make = mannwhitneyu(s2b_make, s2r_make)
+u_s2_make_percent = u_s2_make / (len(s2b_make) * len(s2r_make))
 
 # scenario where the first snatch was a miss and bump
 s2b_bump = full[
@@ -296,6 +320,7 @@ s2r_bump = full[
 ]["pct_improvement_snatch"].copy()
 
 u_s2_bump, p_s2_bump = mannwhitneyu(s2b_bump, s2r_bump)
+u_s2_bump_percent = u_s2_bump / (len(s2b_bump) * len(s2r_bump))
 
 # scenario where the first snatch was a miss and retake
 s2b_retake = full[
@@ -309,5 +334,153 @@ s2r_retake = full[
 ]["pct_improvement_snatch"].copy()
 
 u_s2_retake, p_s2_retake = mannwhitneyu(s2b_retake, s2r_retake)
+u_s2_retake_percent = u_s2_retake / (len(s2b_retake) * len(s2r_retake))
+
+
+
+
+# --------------------------------- cj 1 --------------------------------- #
+c1b = full[full["c1_state"] == "miss_bump"]["pct_improvement_cj"].copy()
+c1r = full[full["c1_state"] == "miss_retake"]["pct_improvement_cj"].copy()
+u_c1, p_c1 = mannwhitneyu(c1b, c1r)
+u_c1_percent = u_c1 / (len(c1b) * len(c1r))
+
+
+# --------------------------------- cj 2 --------------------------------- #
+
+# scenario where the first cj was a make
+c2b_make = full[
+   (full["c1_state"] == "make") & 
+   (full["c2_state"] == "miss_bump")
+]["pct_improvement_cj"].copy()
+
+c2r_make = full[
+   (full["c1_state"] == "make") & 
+   (full["c2_state"] == "miss_retake")
+]["pct_improvement_cj"].copy()
+
+u_c2_make, p_c2_make = mannwhitneyu(c2b_make, c2r_make)
+u_c2_make_percent = u_c2_make / (len(c2b_make) * len(c2r_make))
+
+# scenario where the first cj was a miss and bump
+c2b_bump = full[
+   (full["c1_state"] == "miss_bump") & 
+   (full["c2_state"] == "miss_bump")
+]["pct_improvement_cj"].copy()
+
+c2r_bump = full[
+   (full["c1_state"] == "miss_bump") & 
+   (full["c2_state"] == "miss_retake")
+]["pct_improvement_cj"].copy()
+
+u_c2_bump, p_c2_bump = mannwhitneyu(c2b_bump, c2r_bump)
+u_c2_bump_percent = u_c2_bump / (len(c2b_bump) * len(c2r_bump))
+
+# scenario where the first cj was a miss and retake
+c2b_retake = full[
+   (full["c1_state"] == "miss_retake") & 
+   (full["c2_state"] == "miss_bump")
+]["pct_improvement_cj"].copy()
+
+c2r_retake = full[
+   (full["c1_state"] == "miss_retake") & 
+   (full["c2_state"] == "miss_retake")
+]["pct_improvement_cj"].copy()
+
+u_c2_retake, p_c2_retake = mannwhitneyu(c2b_retake, c2r_retake)
+u_c2_retake_percent = u_c2_retake / (len(c2b_retake) * len(c2r_retake))
+
+
+
+# -------------------------- Number of attempts made ------------------------- #
+
+full["made"] = (full["Snatch Attempt Make 1"].astype(float)) + full["Snatch Attempt Make 2"]  + full["Snatch Attempt Make 3"] + full["CJ Attempt Make 1"] + full["CJ Attempt Make 2"] + full["CJ Attempt Make 3"]
+makes = full["made"].value_counts().reset_index()
+makes["p"] = makes["count"] / len(full)
+
+# Sort
+makes_sorted = makes.sort_values('made')
+
+sizes = makes_sorted['p']
+labels = [str(int(m)) for m in makes_sorted['made']]
+
+# Function to hide tiny percentages
+def autopct_func(pct):
+    return f'{pct:.1f}%' if pct > 5 else ''  # only show if >5%
+
+fig, ax = plt.subplots(figsize=(6, 6))
+
+ax.pie(
+    sizes,
+    labels=labels,
+    autopct=autopct_func,
+    startangle=90
+)
+
+ax.set_title('Number of Made Attempts (Out of 6)')
+
+plt.tight_layout()
+
+# Save
+plt.savefig("charts/makes_distribution_pie.png", dpi=300, bbox_inches='tight')
+
+plt.show()
+
+
+
+
+# ------------------ Make Probability By Attempt Difficulty ------------------ #
+
+# Make percentage based on % over opener
+full["s1p"] = 0
+full["s2p"] = (full["Snatch Attempt 2"] - full["Snatch Attempt 1"]) / full["Snatch Attempt 1"]
+full["s3p"] = (full["Snatch Attempt 3"] - full["Snatch Attempt 1"]) / full["Snatch Attempt 1"]
+full["c1p"] = 0
+full["c2p"] = (full["CJ Attempt 2"] - full["CJ Attempt 1"]) / full["CJ Attempt 1"]
+full["c3p"] = (full["CJ Attempt 3"] - full["CJ Attempt 1"]) / full["CJ Attempt 1"]
+
+full["s2p"] = full["s2p"].round(3)
+full["s3p"] = full["s3p"].round(3)
+full["c2p"] = full["c2p"].round(3)
+full["c3p"] = full["c3p"].round(3)
+
+# melt into long form
+s1 = full[["s1p", "Snatch Attempt Make 1"]].copy()
+s2 = full[["s2p", "Snatch Attempt Make 2"]].copy()
+s3 = full[["s3p", "Snatch Attempt Make 3"]].copy()
+c1 = full[["c1p", "CJ Attempt Make 1"]].copy()
+c2 = full[["c2p", "CJ Attempt Make 2"]].copy()
+c3 = full[["c3p", "CJ Attempt Make 3"]].copy()
+
+s1.columns = ["p", "make"]
+s2.columns = ["p", "make"]
+s3.columns = ["p", "make"]
+c1.columns = ["p", "make"]
+c2.columns = ["p", "make"]
+c3.columns = ["p", "make"]
+
+full_percent = pd.concat([s1,s2,s3,c1,c2,c3])
+full_percent["make"] = full_percent["make"].astype("float")
+make_summary = full_percent.groupby("p").agg(
+   avg = ("make", "mean")
+).reset_index()
+
+fig, ax = plt.subplots(figsize=(10, 6))
+
+sns.regplot(
+   x="p",
+   y="make",
+   data=full_percent,
+   logistic=True,
+   scatter_kws={"alpha": 0.5, "s": 5},
+   line_kws={"color": "red", "lw": 2},
+   ax=ax
+)
+
+plt.xlim(0, 0.4)
+ax.set_xlabel("% Increase From Opener", fontsize=16)
+ax.set_ylabel("Probability of Success", fontsize=16)
+plt.savefig("charts/regression.png", dpi=600)
+
 
 
